@@ -7,21 +7,26 @@ IFS=$'\n\t'
 
 # Show usage
 show_usage() {
-  echo "Usage: $0 -d <PHOTO_DIR> [-a <AFTER_TIME>] [-b <BEFORE_TIME>]"
+  echo "Usage: $0 -d <PHOTO_DIR> [-a <AFTER_TIME>] [-b <BEFORE_TIME>] [-r]"
   echo "Time format for -a and -b: 'YYYY-MM-DD HH:MM:SS' or any format accepted by 'date -d'."
+  echo "  -r: Process directories recursively (default: off)"
 }
 
 # Parse arguments
 PHOTO_DIR=""
 AFTER_TIME=""
 BEFORE_TIME=""
+RECURSIVE=false
 
-require_cmd() { command -v "$1" &>/dev/null || { echo "'$1' command not found"; exit 1; }; }
+require_cmd() { command -v "$1" &>/dev/null || {
+  echo "'$1' command not found"
+  exit 1
+}; }
 
 main() {
   require_cmd exiftool
 
-  while getopts "d:a:b:" opt; do
+  while getopts "d:a:b:r" opt; do
     case "$opt" in
     d) PHOTO_DIR=$OPTARG ;;
     a) AFTER_TIME=$(date -d "$OPTARG" +%s) || {
@@ -32,6 +37,7 @@ main() {
       show_usage
       exit 1
     } ;;
+    r) RECURSIVE=true ;;
     *)
       show_usage >&2
       exit 1
@@ -44,19 +50,29 @@ main() {
     exit 1
   }
 
+  if [[ ! -d "$PHOTO_DIR" ]]; then
+    echo "Error: '$PHOTO_DIR' is not a directory"
+    exit 1
+  fi
+
   # Build find arguments
-  find_args=( "$PHOTO_DIR" -type f \( -iname '*.jpg' -o -iname '*.jpeg' \) )
+  if [[ "$RECURSIVE" == true ]]; then
+    find_args=("$PHOTO_DIR" -type f \( -iname '*.jpg' -o -iname '*.jpeg' \))
+  else
+    find_args=(-maxdepth 1 -type f \( -iname '*.jpg' -o -iname '*.jpeg' \))
+    find_args=("$PHOTO_DIR" "${find_args[@]}")
+  fi
 
   # If AFTER_TIME is specified, add condition for files newer than that time
   if [[ -n $AFTER_TIME ]]; then
     after_str=$(date -d "@$AFTER_TIME" +'%F %T')
-    find_args+=( -newermt "$after_str" )
+    find_args+=(-newermt "$after_str")
   fi
 
   # If BEFORE_TIME is specified, exclude files newer than that time
   if [[ -n $BEFORE_TIME ]]; then
     before_str=$(date -d "@$BEFORE_TIME" +'%F %T')
-    find_args+=( ! -newermt "$before_str" )
+    find_args+=(! -newermt "$before_str")
   fi
 
   # Process only files that match the time criteria
