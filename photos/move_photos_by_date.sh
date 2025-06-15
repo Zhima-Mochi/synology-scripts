@@ -104,6 +104,11 @@ main() {
     $recursive || find_opts+=(-maxdepth 1)
     find_opts+=(-type f)
     while IFS= read -r -d '' file; do
+      # skip SYNOPHOTO_THUMB
+      if [[ "$file" == *"SYNOPHOTO_THUMB"* ]]; then
+        continue
+      fi
+
       move_photo "$file" "$tgt_root"
     done < <(find "$src" "${find_opts[@]}" -print0)
   fi
