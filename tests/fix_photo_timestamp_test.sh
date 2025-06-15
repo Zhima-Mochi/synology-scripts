@@ -147,7 +147,7 @@ check_exif() {
 # Test 1: Basic functionality - process all files
 run_test_basic_functionality() {
     print_info "\nTest 1: Basic functionality - process all files"
-    "$SCRIPT_PATH" -d "$SOURCE_DIR"
+    "$SCRIPT_PATH" "$SOURCE_DIR"
 
     local errors=0
     # Verify timestamps were corrected
@@ -191,7 +191,7 @@ run_test_after_time() {
     print_info "\nTest 2: Filter by after time"
     # Process only files with modification time after 2022-03-01
     local after_date="2022-03-01"
-    "$SCRIPT_PATH" -d "$SOURCE_DIR" -a "$after_date"
+    "$SCRIPT_PATH" "$SOURCE_DIR" -a "$after_date"
 
     local errors=0
     
@@ -230,7 +230,7 @@ run_test_before_time() {
     print_info "\nTest 3: Filter by before time"
     # Process only files with modification time before 2023-01-01
     local before_date="2023-01-01"
-    "$SCRIPT_PATH" -d "$SOURCE_DIR" -b "$before_date"
+    "$SCRIPT_PATH" "$SOURCE_DIR" -b "$before_date"
 
     local errors=0
 
@@ -270,7 +270,7 @@ run_test_time_range() {
     # Process only files with modification time between 2022-01-01 and 2022-12-31
     local after_date="2022-01-01"
     local before_date="2022-12-31"
-    "$SCRIPT_PATH" -d "$SOURCE_DIR" -a "$after_date" -b "$before_date"
+    "$SCRIPT_PATH" "$SOURCE_DIR" -a "$after_date" -b "$before_date"
 
     local errors=0
     
@@ -315,7 +315,7 @@ run_test_recursive() {
     touch "${SOURCE_DIR}/subdir/${TS1}.jpg"
 
     print_info "\nTest 5: Test recursive mode"
-    "$SCRIPT_PATH" -d "$SOURCE_DIR" -r
+    "$SCRIPT_PATH" "$SOURCE_DIR" -r
 
     local errors=0
     # Both root and subdir files should be processed

@@ -11,7 +11,7 @@ source "${SCRIPT_DIR}/../utils/file_utils.sh"
 
 # Show usage
 show_usage() {
-  echo "Usage: $0 -d <PHOTO_DIR> [-a <AFTER_TIME>] [-b <BEFORE_TIME>] [-r]"
+  echo "Usage: $0 <PHOTO_DIR> [-a <AFTER_TIME>] [-b <BEFORE_TIME>] [-r]"
   echo "Time format for -a and -b: 'YYYY-MM-DD HH:MM:SS' or any format accepted by 'date -d'."
   echo "  -r: Process directories recursively (default: off)"
 }
@@ -19,15 +19,14 @@ show_usage() {
 main() {
   require_cmd exiftool
 
-  local PHOTO_DIR=""
+  local PHOTO_DIR=$1
   local RECURSIVE=false
   local AFTER_TIME=""
   local BEFORE_TIME=""
-
+  
   # Parse command line options
-  while getopts "d:a:b:r" opt; do
+  while getopts "a:b:r" opt; do
     case "$opt" in
-    d) PHOTO_DIR=$OPTARG ;;
     a) AFTER_TIME=$(date -d "$OPTARG" +%s) || {
       show_usage
       exit 1
