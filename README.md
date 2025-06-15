@@ -4,7 +4,7 @@ A set of shell scripts designed to automate common tasks on Synology NAS systems
 
 ## 📁 Modules
 
-- `photos/` — Scripts for photo timestamp correction, EXIF fixes, renaming
+- `media/` — Scripts for media (photos and videos) timestamp correction, metadata fixes, and organization
 - `system/` — System maintenance tools (auto-shutdown, cleanup)
 - `network/` — Scripts for DDNS, firewall rule automation
 - `utils/` — Utility tools (e.g., exiftool installer)
@@ -13,7 +13,8 @@ A set of shell scripts designed to automate common tasks on Synology NAS systems
 
 - Synology DSM 6.x / 7.x
 - SSH access enabled
-- bash, coreutils, optionally `exiftool`
+- bash, coreutils, optionally `exiftool` (for media processing)
+- optionally `ffmpeg` (for video processing and tests)
 
 ## 🛠 How to Use
 
@@ -21,7 +22,8 @@ A set of shell scripts designed to automate common tasks on Synology NAS systems
 2. Upload scripts or `git clone` the repo.
 3. Run with proper permissions:
    ```bash
-   bash photos/fix_photo_timestamp.sh
+   bash media/fix_media_timestamp.sh /path/to/media
+   bash media/move_media_by_date.sh /path/to/media /destination/folder
    ```
 
 ## ⚠️ Disclaimer
