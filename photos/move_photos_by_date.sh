@@ -62,10 +62,15 @@ move_photo() {
   fn=${base%.*}
   ext=${base##*.}
 
+  # Start with the original filename
   local dest="$dest_dir/$base"
-  if [[ -e "$dest" ]]; then
-    dest="$dest_dir/${fn}_$(date +%Y%m%d%H%M%S).${ext,,}"
-  fi
+  local counter=1
+  
+  # If destination exists, try with counter suffix
+  while [[ -e "$dest" ]]; do
+    dest="$dest_dir/${fn}_${counter}.${ext,,}"
+    ((counter++))
+  done
 
   printf '→  %s\n   ↳ %s\n' "$src" "$dest"
   mv -- "$src" "$dest"
