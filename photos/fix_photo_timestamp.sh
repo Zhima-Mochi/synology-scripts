@@ -74,7 +74,11 @@ main() {
     current_timestamp=$(stat --format='%y' "$file")
 
     # Format the timestamp for touch command
-    formatted_date=$(date -d "@$ts" +"%Y%m%d%H%M.%S")
+    formatted_date=$(date -d "@$ts" +"%Y%m%d%H%M.%S" 2>/dev/null)
+    if [[ $? -ne 0 ]]; then
+      print_info "Skipping invalid timestamp: $base"
+      continue
+    fi
 
     # Update filesystem timestamp using the formatted date
     touch -t "$formatted_date" "$file"
