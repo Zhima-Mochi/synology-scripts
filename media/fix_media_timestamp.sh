@@ -11,9 +11,10 @@ source "${SCRIPT_DIR}/../utils/file_utils.sh"
 
 # Show usage
 show_usage() {
-  echo "Usage: $0 <MEDIA_DIR> [-a <AFTER_TIME>] [-b <BEFORE_TIME>] [-r]"
+  echo "Usage: $0 <MEDIA_DIR> [-a <AFTER_TIME>] [-b <BEFORE_TIME>] [-r] [-m <TARGET_DIR TO MOVE MEDIA>]"
   echo "Time format for -a and -b: 'YYYY-MM-DD HH:MM:SS' or any format accepted by 'date -d'."
   echo "  -r: Process directories recursively (default: off)"
+  echo "  -m <TARGET_DIR>: Target directory for move_media_by_date (default: current directory)"
 }
 
 main() {
@@ -29,7 +30,9 @@ main() {
   local RECURSIVE=false
   local AFTER_TIME=""
   local BEFORE_TIME=""
-  
+  local MOVE_MEDIA_BY_DATE=false
+  local MOVE_MEDIA_BY_DATE_TARGET_DIR="$MEDIA_DIR"
+
   # Parse command line options
   while getopts "a:b:r" opt; do
     case "$opt" in
@@ -46,6 +49,10 @@ main() {
       }
       ;;
     r) RECURSIVE=true ;;
+    m)
+      MOVE_MEDIA_BY_DATE=true
+      MOVE_MEDIA_BY_DATE_TARGET_DIR="$OPTARG"
+      ;;
     *)
       show_usage >&2
       exit 1
@@ -74,7 +81,7 @@ main() {
     }
 
     ts=$name
-    
+
     # If the length of the timestamp is 13 digits, assume it's milliseconds since epoch and truncate to seconds
     if [[ ${#ts} -eq 13 ]]; then
       ts=${ts:0:10}
@@ -104,7 +111,11 @@ main() {
     timestamp_date=$(date -d "@$ts" +"%Y-%m-%d %H:%M:%S")
     print_success "Updated: $base from $current_timestamp to $new_timestamp (Unix timestamp: $ts = $timestamp_date)"
 
+    if [[ "$MOVE_MEDIA_BY_DATE" == true ]]; then
+      move_media_by_date "$file" "$MOVE_MEDIA_BY_DATE_TARGET_DIR"
+    fi
+
   done < <(find "${find_args[@]}")
 }
 
-main "$@" 
+main "$@"
