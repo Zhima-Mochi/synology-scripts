@@ -19,7 +19,13 @@ show_usage() {
 main() {
   require_cmd exiftool
 
-  local PHOTO_DIR=$1
+  if [[ $# -eq 0 || "$1" == "-"* ]]; then
+    show_usage >&2
+    exit 1
+  fi
+  local PHOTO_DIR="$1"
+  shift
+
   local RECURSIVE=false
   local AFTER_TIME=""
   local BEFORE_TIME=""
@@ -27,14 +33,18 @@ main() {
   # Parse command line options
   while getopts "a:b:r" opt; do
     case "$opt" in
-    a) AFTER_TIME=$(date -d "$OPTARG" +%s) || {
-      show_usage
-      exit 1
-    } ;;
-    b) BEFORE_TIME=$(date -d "$OPTARG" +%s) || {
-      show_usage
-      exit 1
-    } ;;
+    a)
+      AFTER_TIME=$(date -d "$OPTARG" +%s) || {
+        show_usage
+        exit 1
+      }
+      ;;
+    b)
+      BEFORE_TIME=$(date -d "$OPTARG" +%s) || {
+        show_usage
+        exit 1
+      }
+      ;;
     r) RECURSIVE=true ;;
     *)
       show_usage >&2
@@ -44,11 +54,6 @@ main() {
   done
 
   # Validate required parameters
-  [[ -z "$PHOTO_DIR" ]] && {
-    show_usage >&2
-    exit 1
-  }
-
   [[ ! -d "$PHOTO_DIR" ]] && {
     die "Error: '$PHOTO_DIR' is not a directory"
   }
@@ -69,6 +74,14 @@ main() {
     }
 
     ts=$name
+    
+    # If the length of the timestamp is 13 digits, assume it's milliseconds since epoch and truncate to seconds
+    if [[ ${#ts} -eq 13 ]]; then
+      ts=${ts:0:10}
+    elif [[ ${#ts} -ne 10 ]]; then
+      print_info "Skipping invalid timestamp: $base"
+      continue
+    fi
 
     # Read the current timestamp of the file before updating
     current_timestamp=$(stat --format='%y' "$file")

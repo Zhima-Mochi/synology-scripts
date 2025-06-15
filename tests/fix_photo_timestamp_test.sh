@@ -31,7 +31,6 @@ check_dependencies() {
     [[ ! -f "$SCRIPT_PATH" ]] && die "Error: Script $SCRIPT_PATH not found"
 
     # Check if ImageMagick is installed
-    require_cmd gm
     require_cmd convert
 }
 
@@ -60,16 +59,16 @@ create_test_images() {
     export TS5=1688169600
 
     # Create test images with timestamp filenames
-    gm convert -size 10x10 xc:white "${SOURCE_DIR}/${TS1}.jpg"
-    gm convert -size 10x10 xc:white "${SOURCE_DIR}/${TS2}.jpg"
-    gm convert -size 10x10 xc:white "${SOURCE_DIR}/${TS3}.jpg"
-    gm convert -size 10x10 xc:white "${SOURCE_DIR}/${TS4}.jpg"
-    gm convert -size 10x10 xc:white "${SOURCE_DIR}/${TS5}.jpg"
+    convert -size 10x10 xc:white "${SOURCE_DIR}/${TS1}.jpg"
+    convert -size 10x10 xc:white "${SOURCE_DIR}/${TS2}.jpg"
+    convert -size 10x10 xc:white "${SOURCE_DIR}/${TS3}.jpg"
+    convert -size 10x10 xc:white "${SOURCE_DIR}/${TS4}.jpg"
+    convert -size 10x10 xc:white "${SOURCE_DIR}/${TS5}.jpg"
     
     print_info "Created timestamp images in ${SOURCE_DIR}"
 
     # Create a file with non-timestamp filename for testing skipping
-    gm convert -size 10x10 xc:white "${SOURCE_DIR}/not_a_timestamp.jpg"
+    convert -size 10x10 xc:white "${SOURCE_DIR}/not_a_timestamp.jpg"
     print_info "Created test image: ${SOURCE_DIR}/not_a_timestamp.jpg (should be skipped)"
 
     # Touch all files to ensure they have a consistent timestamp different from the filename
@@ -142,6 +141,24 @@ check_exif() {
     fi
 }
 
+# Add a helper to check if mtime was NOT changed
+check_mtime_unchanged() {
+    local file="$1"
+    local expected_mtime_ts="$2"
+    local file_ts
+    file_ts=$(stat -c %Y "$file")
+
+    if [[ "$file_ts" -eq "$expected_mtime_ts" ]]; then
+        print_success "✓ File $(basename "$file") was correctly skipped (mtime unchanged)."
+        return 0
+    else
+        print_error "✗ File $(basename "$file") was incorrectly processed (mtime changed)."
+        print_error "  Expected mtime: $(date -d "@${expected_mtime_ts}")"
+        print_error "  Actual mtime:   $(date -d "@${file_ts}")"
+        return 1
+    fi
+}
+
 # ----- Test Cases -----
 
 # Test 1: Basic functionality - process all files
@@ -180,130 +197,84 @@ run_test_basic_functionality() {
 
 # Test 2: After time filter
 run_test_after_time() {
-    # Reset test files
     reset_test_files
+    
+    local mtime1=$(date -d "2022-01-01" +%s)
+    local mtime2=$(date -d "2022-04-01" +%s)
+    local mtime3=$(date -d "2023-04-01" +%s)
+    touch -d "@$mtime1" "${SOURCE_DIR}/${TS1}.jpg" # before filter -> skip
+    touch -d "@$mtime2" "${SOURCE_DIR}/${TS2}.jpg" # after filter -> process
+    touch -d "@$mtime3" "${SOURCE_DIR}/${TS3}.jpg" # after filter -> process
 
-    # Set specific modification times for testing
-    touch -d "2022-01-01" "${SOURCE_DIR}/${TS1}.jpg" # mtime before filter
-    touch -d "2022-04-01" "${SOURCE_DIR}/${TS2}.jpg" # mtime after filter
-    touch -d "2023-04-01" "${SOURCE_DIR}/${TS3}.jpg" # mtime after filter
-
-    print_info "\nTest 2: Filter by after time"
-    # Process only files with modification time after 2022-03-01
+    print_info "\nTest 2: Filter by after time (mtime)"
     local after_date="2022-03-01"
     "$SCRIPT_PATH" "$SOURCE_DIR" -a "$after_date"
 
     local errors=0
-    
-    # TS1 should NOT be processed. Its mtime should be the one we set.
-    local ts1_mtime=$(stat -c %Y "${SOURCE_DIR}/${TS1}.jpg")
-    local expected_ts1_mtime=$(date -d "2022-01-01" +%s)
-    if [[ $ts1_mtime -eq $expected_ts1_mtime ]]; then
-        print_success "✓ File ${TS1}.jpg correctly not processed."
-    else
-        print_error "✗ File ${TS1}.jpg was incorrectly processed."
-        ((errors++))
-    fi
-
-    # TS2 and TS3 should BE processed. Their mtimes should match their filename timestamps.
+    check_mtime_unchanged "${SOURCE_DIR}/${TS1}.jpg" "$mtime1" || ((errors++))
     check_timestamp "${SOURCE_DIR}/${TS2}.jpg" "$TS2" || ((errors++))
     check_timestamp "${SOURCE_DIR}/${TS3}.jpg" "$TS3" || ((errors++))
 
     if [[ $errors -eq 0 ]]; then
         print_success "✓ Test 2 passed: After time filter working correctly"
-        return 0
     else
         print_error "✗ Test 2 failed: $errors errors detected"
-        return 1
     fi
+    return $errors
 }
 
 # Test 3: Before time filter
 run_test_before_time() {
-    # Reset test files
     reset_test_files
 
-    # Set specific modification times for testing
-    touch -d "2022-01-01" "${SOURCE_DIR}/${TS2}.jpg" # mtime before filter
-    touch -d "2023-04-01" "${SOURCE_DIR}/${TS3}.jpg" # mtime after filter
-
-    print_info "\nTest 3: Filter by before time"
-    # Process only files with modification time before 2023-01-01
+    local mtime2=$(date -d "2022-08-01" +%s)
+    local mtime3=$(date -d "2023-04-01" +%s)
+    touch -d "@$mtime2" "${SOURCE_DIR}/${TS2}.jpg" # before filter -> process
+    touch -d "@$mtime3" "${SOURCE_DIR}/${TS3}.jpg" # after filter -> skip
+    
+    print_info "\nTest 3: Filter by before time (mtime)"
     local before_date="2023-01-01"
     "$SCRIPT_PATH" "$SOURCE_DIR" -b "$before_date"
 
     local errors=0
-
-    # TS2 should BE processed
     check_timestamp "${SOURCE_DIR}/${TS2}.jpg" "$TS2" || ((errors++))
-
-    # TS3 should NOT be processed
-    local ts3_mtime=$(stat -c %Y "${SOURCE_DIR}/${TS3}.jpg")
-    local expected_ts3_mtime=$(date -d "2023-04-01" +%s)
-    if [[ $ts3_mtime -eq $expected_ts3_mtime ]]; then
-        print_success "✓ File ${TS3}.jpg correctly not processed."
-    else
-        print_error "✗ File ${TS3}.jpg was incorrectly processed."
-        ((errors++))
-    fi
+    check_mtime_unchanged "${SOURCE_DIR}/${TS3}.jpg" "$mtime3" || ((errors++))
 
     if [[ $errors -eq 0 ]]; then
         print_success "✓ Test 3 passed: Before time filter working correctly"
-        return 0
     else
         print_error "✗ Test 3 failed: $errors errors detected"
-        return 1
     fi
+    return $errors
 }
 
 # Test 4: Time range filter (both before and after)
 run_test_time_range() {
-    # Reset test files
     reset_test_files
 
-    # Set specific modification times
-    touch -d "2021-01-01" "${SOURCE_DIR}/${TS1}.jpg" # a year before
-    touch -d "2022-06-01" "${SOURCE_DIR}/${TS2}.jpg" # within range
-    touch -d "2023-01-01" "${SOURCE_DIR}/${TS3}.jpg" # a year after
+    local mtime1=$(date -d "2021-12-31" +%s)
+    local mtime2=$(date -d "2022-06-15" +%s)
+    local mtime3=$(date -d "2023-01-01" +%s)
+    touch -d "@$mtime1" "${SOURCE_DIR}/${TS1}.jpg" # before range -> skip
+    touch -d "@$mtime2" "${SOURCE_DIR}/${TS2}.jpg" # in range -> process
+    touch -d "@$mtime3" "${SOURCE_DIR}/${TS3}.jpg" # after range -> skip
 
-    print_info "\nTest 4: Filter by time range"
-    # Process only files with modification time between 2022-01-01 and 2022-12-31
+    print_info "\nTest 4: Filter by time range (mtime)"
     local after_date="2022-01-01"
     local before_date="2022-12-31"
     "$SCRIPT_PATH" "$SOURCE_DIR" -a "$after_date" -b "$before_date"
 
     local errors=0
-    
-    # Only TS2 should be processed
+    check_mtime_unchanged "${SOURCE_DIR}/${TS1}.jpg" "$mtime1" || ((errors++))
     check_timestamp "${SOURCE_DIR}/${TS2}.jpg" "$TS2" || ((errors++))
-
-    # TS1 should NOT be processed
-    local ts1_mtime=$(stat -c %Y "${SOURCE_DIR}/${TS1}.jpg")
-    local expected_ts1_mtime=$(date -d "2021-01-01" +%s)
-    if [[ $ts1_mtime -eq $expected_ts1_mtime ]]; then
-        print_success "✓ File ${TS1}.jpg correctly not processed."
-    else
-        print_error "✗ File ${TS1}.jpg was incorrectly processed."
-        ((errors++))
-    fi
-
-    # TS3 should NOT be processed
-    local ts3_mtime=$(stat -c %Y "${SOURCE_DIR}/${TS3}.jpg")
-    local expected_ts3_mtime=$(date -d "2023-01-01" +%s)
-    if [[ $ts3_mtime -eq $expected_ts3_mtime ]]; then
-        print_success "✓ File ${TS3}.jpg correctly not processed."
-    else
-        print_error "✗ File ${TS3}.jpg was incorrectly processed."
-        ((errors++))
-    fi
+    check_mtime_unchanged "${SOURCE_DIR}/${TS3}.jpg" "$mtime3" || ((errors++))
 
     if [[ $errors -eq 0 ]]; then
         print_success "✓ Test 4 passed: Time range filter working correctly"
-        return 0
     else
         print_error "✗ Test 4 failed: $errors errors detected"
-        return 1
     fi
+    return $errors
 }
 
 # Test 5: Recursive mode
