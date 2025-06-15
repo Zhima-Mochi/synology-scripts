@@ -34,7 +34,7 @@ main() {
   local MOVE_MEDIA_BY_DATE_TARGET_DIR="$MEDIA_DIR"
 
   # Parse command line options
-  while getopts "a:b:r" opt; do
+  while getopts "a:b:r:m" opt; do
     case "$opt" in
     a)
       AFTER_TIME=$(date -d "$OPTARG" +%s) || {
