@@ -40,12 +40,12 @@ if [[ ! -f "$SCRIPT_PATH" ]]; then
 fi
 
 # Check if exiftool is installed
-if ! command -v exiftool &> /dev/null; then
+if ! command -v exiftool &>/dev/null; then
     print_error_and_exit "Error: exiftool is not installed. Please install it with: sudo apt-get install libimage-exiftool-perl"
 fi
 
 # Check if ImageMagick is installed
-if ! command -v convert &> /dev/null; then
+if ! command -v convert &>/dev/null; then
     print_error_and_exit "Error: ImageMagick is not installed. Please install it with: sudo apt-get install imagemagick"
 fi
 
@@ -60,13 +60,13 @@ mkdir -p "$SOURCE_DIR/subdir"
 create_test_image() {
     local file_path="$1"
     local date_str="$2"
-    
+
     # Create a simple 10x10 JPEG image
     convert -size 10x10 xc:white "$file_path"
-    
+
     # Set the EXIF date
-    exiftool -overwrite_original "-DateTimeOriginal=$date_str" "$file_path" > /dev/null
-    
+    exiftool -overwrite_original "-DateTimeOriginal=$date_str" "$file_path" >/dev/null
+
     echo "Created test image: $file_path with date: $date_str"
 }
 
