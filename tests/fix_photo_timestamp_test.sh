@@ -31,6 +31,7 @@ check_dependencies() {
     [[ ! -f "$SCRIPT_PATH" ]] && die "Error: Script $SCRIPT_PATH not found"
 
     # Check if ImageMagick is installed
+    require_cmd gm
     require_cmd convert
 }
 
@@ -59,16 +60,16 @@ create_test_images() {
     export TS5=1688169600
 
     # Create test images with timestamp filenames
-    convert -size 10x10 xc:white "${SOURCE_DIR}/${TS1}.jpg"
-    convert -size 10x10 xc:white "${SOURCE_DIR}/${TS2}.jpg"
-    convert -size 10x10 xc:white "${SOURCE_DIR}/${TS3}.jpg"
-    convert -size 10x10 xc:white "${SOURCE_DIR}/${TS4}.jpg"
-    convert -size 10x10 xc:white "${SOURCE_DIR}/${TS5}.jpg"
+    gm convert -size 10x10 xc:white "${SOURCE_DIR}/${TS1}.jpg"
+    gm convert -size 10x10 xc:white "${SOURCE_DIR}/${TS2}.jpg"
+    gm convert -size 10x10 xc:white "${SOURCE_DIR}/${TS3}.jpg"
+    gm convert -size 10x10 xc:white "${SOURCE_DIR}/${TS4}.jpg"
+    gm convert -size 10x10 xc:white "${SOURCE_DIR}/${TS5}.jpg"
     
     print_info "Created timestamp images in ${SOURCE_DIR}"
 
     # Create a file with non-timestamp filename for testing skipping
-    convert -size 10x10 xc:white "${SOURCE_DIR}/not_a_timestamp.jpg"
+    gm convert -size 10x10 xc:white "${SOURCE_DIR}/not_a_timestamp.jpg"
     print_info "Created test image: ${SOURCE_DIR}/not_a_timestamp.jpg (should be skipped)"
 
     # Touch all files to ensure they have a consistent timestamp different from the filename

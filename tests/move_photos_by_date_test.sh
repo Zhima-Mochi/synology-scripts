@@ -35,7 +35,9 @@ print_error_and_exit() {
 
 # Check dependencies
 require_cmd exiftool
+require_cmd gm
 require_cmd convert
+require_cmd file
 
 # Cleanup existing test files and directories
 print_info "Cleaning up existing test files..."
@@ -50,7 +52,7 @@ create_test_image() {
     local date_str="$2"
 
     # Create a simple 10x10 JPEG image
-    convert -size 10x10 xc:white "$file_path"
+    gm convert -size 10x10 xc:white "$file_path"
 
     # Set the EXIF date
     exiftool -overwrite_original "-DateTimeOriginal=$date_str" "$file_path" >/dev/null
