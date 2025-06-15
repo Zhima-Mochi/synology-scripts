@@ -5,6 +5,10 @@
 set -euo pipefail
 IFS=$'\n\t'
 
+# Import shared utilities
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/../utils/file_utils.sh"
+
 # Show usage
 show_usage() {
   echo "Usage: $0 -d <PHOTO_DIR> [-a <AFTER_TIME>] [-b <BEFORE_TIME>] [-r]"
@@ -12,20 +16,15 @@ show_usage() {
   echo "  -r: Process directories recursively (default: off)"
 }
 
-# Parse arguments
-PHOTO_DIR=""
-AFTER_TIME=""
-BEFORE_TIME=""
-RECURSIVE=false
-
-require_cmd() { command -v "$1" &>/dev/null || {
-  echo "'$1' command not found"
-  exit 1
-}; }
-
 main() {
   require_cmd exiftool
 
+  local PHOTO_DIR=""
+  local RECURSIVE=false
+  local AFTER_TIME=""
+  local BEFORE_TIME=""
+
+  # Parse command line options
   while getopts "d:a:b:r" opt; do
     case "$opt" in
     d) PHOTO_DIR=$OPTARG ;;
@@ -45,44 +44,28 @@ main() {
     esac
   done
 
+  # Validate required parameters
   [[ -z "$PHOTO_DIR" ]] && {
     show_usage >&2
     exit 1
   }
 
-  if [[ ! -d "$PHOTO_DIR" ]]; then
-    echo "Error: '$PHOTO_DIR' is not a directory"
-    exit 1
-  fi
+  [[ ! -d "$PHOTO_DIR" ]] && {
+    die "Error: '$PHOTO_DIR' is not a directory"
+  }
 
-  # Build find arguments
-  if [[ "$RECURSIVE" == true ]]; then
-    find_args=("$PHOTO_DIR" -type f \( -iname '*.jpg' -o -iname '*.jpeg' \))
-  else
-    find_args=(-maxdepth 1 -type f \( -iname '*.jpg' -o -iname '*.jpeg' \))
-    find_args=("$PHOTO_DIR" "${find_args[@]}")
-  fi
+  # Get find arguments for photos
+  local -a photo_patterns=('*.jpg' '*.jpeg')
+  mapfile -t find_args < <(build_find_args "$PHOTO_DIR" "$RECURSIVE" photo_patterns "$AFTER_TIME" "$BEFORE_TIME")
 
-  # If AFTER_TIME is specified, add condition for files newer than that time
-  if [[ -n $AFTER_TIME ]]; then
-    after_str=$(date -d "@$AFTER_TIME" +'%F %T')
-    find_args+=(-newermt "$after_str")
-  fi
-
-  # If BEFORE_TIME is specified, exclude files newer than that time
-  if [[ -n $BEFORE_TIME ]]; then
-    before_str=$(date -d "@$BEFORE_TIME" +'%F %T')
-    find_args+=(! -newermt "$before_str")
-  fi
-
-  # Process only files that match the time criteria
+  # Process files that match the criteria
   while IFS= read -r file; do
     base=$(basename "$file")
     name="${base%.*}"
 
     # Ensure filename is a valid timestamp
     [[ "$name" =~ ^[0-9]+$ ]] || {
-      echo "Skipping invalid filename: $base"
+      print_info "Skipping invalid filename: $base"
       continue
     }
 
@@ -97,21 +80,13 @@ main() {
     # Update filesystem timestamp using the formatted date
     touch -t "$formatted_date" "$file"
 
-    # Generate proper EXIF timestamp
-    fmt_exif=$(date -d "@$ts" +'%Y:%m:%d %H:%M:%S')
-    modified_fmt_exif=$(date -d "@$ts" +'%Y:%m:%d %H:%M:%S')
-
-    # Update EXIF metadata, preserve filesystem mtime
-    exiftool -overwrite_original -P \
-      -DateTimeOriginal="$fmt_exif" \
-      -CreateDate="$fmt_exif" \
-      -ModifyDate="$modified_fmt_exif" \
-      "$file" &>/dev/null
+    # Update EXIF metadata
+    update_exif_timestamps "$file" "$ts"
 
     # Show what was updated with actual timestamps
     new_timestamp=$(stat --format='%y' "$file")
     timestamp_date=$(date -d "@$ts" +"%Y-%m-%d %H:%M:%S")
-    echo "Updated: $base from $current_timestamp to $new_timestamp (Unix timestamp: $ts = $timestamp_date)"
+    print_success "Updated: $base from $current_timestamp to $new_timestamp (Unix timestamp: $ts = $timestamp_date)"
 
   done < <(find "${find_args[@]}")
 }

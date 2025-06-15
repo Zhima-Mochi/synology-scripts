@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # ---------------------------------------------------------------------------
-#  Photo Date Organizer (refactored)
+#  Photo Date Organizer (refactored)
 # ---------------------------------------------------------------------------
-#  Moves photos into a year/month directory structure based on their EXIF
+#  Moves photos into a year/month directory structure based on their EXIF
 #  "DateTimeOriginal" metadata (falls back to file mtime when missing).
 #
 #  Features
@@ -10,16 +10,16 @@
 #  • Accepts a single file or a directory (with optional recursive search)
 #  • Auto‑creates target/⟨YYYY⟩/⟨MM⟩ folders
 #  • Filename collisions are resolved by appending a timestamp suffix
-#  • Strict error handling (`set -euo pipefail`)
+#  • Strict error handling (`set -euo pipefail`)
 #
 #  Dependencies
 #  ------------
-#  * exiftool – install via your package manager, e.g. 
+#  * exiftool – install via your package manager, e.g. 
 #      sudo apt-get install libimage-exiftool-perl
 #
 #  Usage
 #  -----
-#    $ %s [OPTIONS] <source_path> <target_root>
+#    $ move_photos_by_date.sh [OPTIONS] <source_path> <target_root>
 #
 #  Options
 #    -r, --recursive   Walk sub‑directories under <source_path>
@@ -28,6 +28,10 @@
 
 set -euo pipefail
 IFS=$'\n\t'
+
+# Import shared utilities
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/../utils/file_utils.sh"
 
 SCRIPT_NAME=$(basename "$0")
 
@@ -38,28 +42,6 @@ print_usage() {
   sed -n '1,/^# ---------------------------------------------------------------------------/{s/^# \{0,1\}//;p;}' "$0" | grep -E "^(  |\* |• |-|Usage|Options)" || true
 }
 
-die() { printf "❌  %s\n" "$1" >&2; exit 1; }
-
-require_cmd() { command -v "$1" &>/dev/null || die "'%s' command not found" "$1"; }
-
-# Determine if file seems to be an image we can process
-is_image() { file -Lb --mime-type -- "$1" | grep -qE '^image/(jpeg|png|gif|bmp|tiff|heic|x-canon-cr2|x-sony-arw)$'; }
-
-# Try several EXIF fields and finally fall back to filesystem mtime
-# Returns date in YYYY:MM:DD HH:MM:SS format via stdout
-get_taken_date() {
-  local path="$1"
-  local exif_fields=(DateTimeOriginal CreateDate ModifyDate)
-  local d=""
-  for f in "${exif_fields[@]}"; do
-    d=$(exiftool -s -s -s -d "%Y:%m:%d %H:%M:%S" "-$f" -- "$path" 2>/dev/null || true)
-    [[ -n "$d" && ! "$d" =~ ^0000 ]] && break
-  done
-  # fallback – filesystem mtime
-  [[ -z "$d" ]] && d=$(date -r "$path" +"%Y:%m:%d %H:%M:%S")
-  printf '%s' "$d"
-}
-
 # ---------------------------------------------------------------------------
 #  move_photo <file> <target_root>
 # ---------------------------------------------------------------------------
@@ -68,7 +50,7 @@ move_photo() {
   is_image "$src" || return 0
 
   local ts_taken year month
-  ts_taken=$(get_taken_date "$src")
+  ts_taken=$(get_photo_date "$src")
   year=${ts_taken%%:*}
   month=${ts_taken#*:}; month=${month%%:*}
 
@@ -97,10 +79,9 @@ main() {
   require_cmd file
 
   local recursive=false
-  local -a positional
+  local -a positional=()
 
-
-
+  # Parse command line arguments
   while [[ $# -gt 0 ]]; do
     case $1 in
       -r|--recursive) recursive=true ; shift ;;
@@ -119,14 +100,15 @@ main() {
   if [[ -f "$src" ]]; then
     move_photo "$src" "$tgt_root"
   else
-    local -a find_opts=(-type f)
-    $recursive || find_opts+=( -maxdepth 1 )
+    local -a find_opts=()
+    $recursive || find_opts+=(-maxdepth 1)
+    find_opts+=(-type f)
     while IFS= read -r -d '' file; do
       move_photo "$file" "$tgt_root"
     done < <(find "$src" "${find_opts[@]}" -print0)
   fi
 
-  printf '\n✔  Processing complete.\n'
+  print_success "\n✔  Processing complete."
 }
 
 main "$@"

@@ -13,4 +13,4 @@
 Thumbs.db
 
 # Test files
-*/tests/**
+tests/output/
