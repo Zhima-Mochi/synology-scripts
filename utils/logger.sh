@@ -43,3 +43,10 @@ die() {
   print_error "$1"
   exit 1
 }
+
+print_header() {
+  local text="$1"
+  local line_length=80
+  local header_line=$(printf '%*s' "$line_length" | tr ' ' '-')
+  printf "\n${GREEN}%s${NC}\n${GREEN}  %s${NC}\n${GREEN}%s${NC}\n\n" "$header_line" "$text" "$header_line"
+}

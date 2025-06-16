@@ -11,59 +11,86 @@ source "${SCRIPT_DIR}/../utils/file_utils.sh"
 
 # Show usage
 show_usage() {
-  echo "Usage: $0 <MEDIA_DIR> [-a <AFTER_TIME>] [-b <BEFORE_TIME>] [-r] [-m <TARGET_DIR TO MOVE MEDIA>]"
+  echo "Usage: $0 <MEDIA_DIR> [-a <AFTER_TIME>] [-b <BEFORE_TIME>] [-r] [-m <TARGET_DIR>]"
   echo "Time format for -a and -b: 'YYYY-MM-DD HH:MM:SS' or any format accepted by 'date -d'."
   echo "  -r: Process directories recursively (default: off)"
-  echo "  -m <TARGET_DIR>: Target directory for move_media_by_date (default: current directory)"
+  echo "  -m <TARGET_DIR>: Target directory for moving media after fixing timestamps"
 }
 
 main() {
   require_cmd exiftool
 
-  if [[ $# -eq 0 || "$1" == "-"* ]]; then
-    show_usage >&2
-    exit 1
-  fi
-  local MEDIA_DIR="$1"
-  shift
-
   local RECURSIVE=false
   local AFTER_TIME=""
   local BEFORE_TIME=""
-  local MOVE_MEDIA_BY_DATE=false
-  local MOVE_MEDIA_BY_DATE_TARGET_DIR="$MEDIA_DIR"
+  local MOVE_MEDIA=false
+  local MOVE_TARGET_DIR=""
+  local MEDIA_DIR=""
 
   # Parse command line options
-  while getopts "a:b:r:m" opt; do
-    case "$opt" in
-    a)
-      AFTER_TIME=$(date -d "$OPTARG" +%s) || {
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      -r|--recursive)
+        RECURSIVE=true
+        shift
+        ;;
+      -a|--after)
+        AFTER_TIME=$(date -d "$2" +%s) || {
+          show_usage
+          exit 1
+        }
+        shift 2
+        ;;
+      -b|--before)
+        BEFORE_TIME=$(date -d "$2" +%s) || {
+          show_usage
+          exit 1
+        }
+        shift 2
+        ;;
+      -m|--move)
+        MOVE_MEDIA=true
+        MOVE_TARGET_DIR="$2"
+        shift 2
+        ;;
+      -h|--help)
         show_usage
+        exit 0
+        ;;
+      -*)
+        show_usage >&2
         exit 1
-      }
-      ;;
-    b)
-      BEFORE_TIME=$(date -d "$OPTARG" +%s) || {
-        show_usage
-        exit 1
-      }
-      ;;
-    r) RECURSIVE=true ;;
-    m)
-      MOVE_MEDIA_BY_DATE=true
-      MOVE_MEDIA_BY_DATE_TARGET_DIR="$OPTARG"
-      ;;
-    *)
-      show_usage >&2
-      exit 1
-      ;;
+        ;;
+      *)
+        if [[ -z "$MEDIA_DIR" ]]; then
+          MEDIA_DIR="$1"
+        else
+          show_usage >&2
+          exit 1
+        fi
+        shift
+        ;;
     esac
   done
+
+  # Check if media directory was provided
+  if [[ -z "$MEDIA_DIR" ]]; then
+    show_usage >&2
+    exit 1
+  fi
 
   # Validate required parameters
   [[ ! -d "$MEDIA_DIR" ]] && {
     die "Error: '$MEDIA_DIR' is not a directory"
   }
+
+  # If moving media, ensure target directory exists
+  if [[ "$MOVE_MEDIA" == true ]]; then
+    if [[ -z "$MOVE_TARGET_DIR" ]]; then
+      die "Error: Target directory not specified for -m option"
+    fi
+    mkdir -p "$MOVE_TARGET_DIR" || die "Error: Could not create target directory '$MOVE_TARGET_DIR'"
+  fi
 
   # Get find arguments for media files
   local -a media_patterns=('*.jpg' '*.jpeg' '*.png' '*.gif' '*.mp4' '*.mov' '*.avi' '*.mkv')
@@ -111,8 +138,8 @@ main() {
     timestamp_date=$(date -d "@$ts" +"%Y-%m-%d %H:%M:%S")
     print_success "Updated: $base from $current_timestamp to $new_timestamp (Unix timestamp: $ts = $timestamp_date)"
 
-    if [[ "$MOVE_MEDIA_BY_DATE" == true ]]; then
-      move_media_by_date "$file" "$MOVE_MEDIA_BY_DATE_TARGET_DIR"
+    if [[ "$MOVE_MEDIA" == true ]]; then
+      "$SCRIPT_DIR/move_media_by_date.sh" "$file" "$MOVE_TARGET_DIR"
     fi
 
   done < <(find "${find_args[@]}")

@@ -48,6 +48,7 @@ print_usage() {
 # ---------------------------------------------------------------------------
 move_media() {
   local src="$1" tgt_root="$2"
+  local owner=$(stat -c '%U' "$tgt_root")
   is_media "$src" || return 0
 
   local ts_taken year month
@@ -57,6 +58,7 @@ move_media() {
 
   local dest_dir="$tgt_root/$year/$month"
   mkdir -p -- "$dest_dir"
+  chown "$owner" "$dest_dir"
 
   local base fn ext
   base=$(basename -- "$src")
@@ -75,6 +77,7 @@ move_media() {
 
   printf '→  %s\n   ↳ %s\n' "$src" "$dest"
   mv -- "$src" "$dest"
+  chown "$owner" "$dest"
 }
 
 # ---------------------------------------------------------------------------

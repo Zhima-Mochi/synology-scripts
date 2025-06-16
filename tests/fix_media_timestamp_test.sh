@@ -81,6 +81,62 @@ run_tests() {
   print_info "Test 5: Fix timestamps with both before and after filters (Jan 15 - Mar 15, 2021)"
   ./media/fix_media_timestamp.sh -a "2021-01-15" -b "2021-03-15" "$TEST_OUTPUT_DIR"
   
+  # Test 6: Fix timestamps and move media files to target directory
+  print_info "Test 6: Fix timestamps and move media files to target directory"
+  
+  # Reset the test environment for clean test
+  setup_test_env
+  
+  # Create a dedicated target directory for this test
+  local move_target_dir="$TEST_OUTPUT_DIR/moved_media"
+  mkdir -p "$move_target_dir"
+  
+  # Run the command with the -m option
+  print_info "Running fix_media_timestamp with -m option"
+  ./media/fix_media_timestamp.sh -m "$move_target_dir" "$TEST_OUTPUT_DIR"
+  
+  # Verify that files were moved and organized by date
+  print_info "Verifying moved files in target directory structure"
+  if find "$move_target_dir" -type f | grep -q .; then
+    print_success "Files found in target directory - move operation succeeded"
+    # Show year/month directory structure created by the move operation
+    echo "Directory structure created:"
+    find "$move_target_dir" -type d | sort
+    # List moved files
+    echo "Files organized by date:"
+    find "$move_target_dir" -type f | sort
+  else
+    print_error "No files found in target directory - move operation failed"
+  fi
+  
+  # Test 7: Fix timestamps and move media files with recursive option
+  print_info "Test 7: Fix timestamps and move media files with recursive option"
+  
+  # Reset the test environment for clean test
+  setup_test_env
+  
+  # Create a dedicated target directory for this test
+  local move_target_dir_recursive="$TEST_OUTPUT_DIR/moved_media_recursive"
+  mkdir -p "$move_target_dir_recursive"
+  
+  # Run the command with both -r and -m options
+  print_info "Running fix_media_timestamp with -r and -m options"
+  ./media/fix_media_timestamp.sh -r -m "$move_target_dir_recursive" "$TEST_OUTPUT_DIR"
+  
+  # Verify that files from subdirectories were also moved
+  print_info "Verifying files from subdirectories were moved"
+  if find "$move_target_dir_recursive" -type f | grep -q .; then
+    print_success "Files found in target directory - recursive move operation succeeded"
+    # Count number of files moved
+    local file_count=$(find "$move_target_dir_recursive" -type f | wc -l)
+    echo "Total files moved: $file_count"
+    # Show directory structure
+    echo "Directory structure created:"
+    find "$move_target_dir_recursive" -type d | sort
+  else
+    print_error "No files found in target directory - recursive move operation failed"
+  fi
+  
   print_success "All tests executed successfully"
 }
 
